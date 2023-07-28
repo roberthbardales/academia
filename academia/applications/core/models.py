@@ -1,6 +1,9 @@
 from django.db import models
 
 from django.contrib.auth.models import User
+from django.db.models.signals import post_save,post_delete
+from django.dispatch import receiver
+
 # CURSOS
 
 class Course(models.Model):
@@ -55,6 +58,21 @@ class Attendance(models.Model):
     # total-clases=10
 
 
+    def update_registration_enabled_status(self):
+        course_instance=Course.objects.get(id=self.course.id)
+        total_clasess=course_instance.class_quantity
+        total_absences=Attendance.objects.filter(student=self.student,course=self.course,present=False).count()
+        absences_percent=(total_absences/total_clasess)*100
+
+        registration=Registration.objects.get(course=self.course,student=self.student)
+        if absences_percent>20:
+            registration.enabled=False
+        else:
+            registration.enabled=True
+
+        registration.save()
+
+
     class Meta:
         verbose_name = 'Asistencia'
         verbose_name_plural = 'Asistencias'
@@ -95,5 +113,11 @@ class Mark(models.Model):
         verbose_name = 'Nota'
         verbose_name_plural = 'Notas'
 
+
+@receiver(post_save,sender=Attendance)
+@receiver(post_delete,sender=Attendance)
+
+def update_registration_enabled_status(sender,instance,**kwargs):
+    instance.update_registration_enabled_status()
 
 
